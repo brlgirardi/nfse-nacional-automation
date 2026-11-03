@@ -1,0 +1,21 @@
+name: 'Validate - No fiscal transmission'
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+      - run: composer validate --no-check-publish
+      - run: php -l src/emitir.php && php -l src/cancelar.php && php -l scripts/preflight.php
+      - run: composer install --no-dev --no-interaction --prefer-dist --no-progress
+      - run: php tests/render-danfse.php
+      - run: python3 -m unittest discover -s tests -v

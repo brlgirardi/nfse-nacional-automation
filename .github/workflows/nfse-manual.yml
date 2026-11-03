@@ -1,0 +1,155 @@
+name: 'NFS-e Nacional - Operação manual'
+on:
+  workflow_dispatch:
+    inputs:
+      operacao:
+        description: 'Validar, emitir ou cancelar'
+        required: true
+        type: choice
+        options: [validar, emitir, cancelar]
+      ambiente:
+        description: 'homologation ou production'
+        required: true
+        type: choice
+        options: [homologation, production]
+      request_sha256:
+        description: 'SHA256 exato do request JSON guardado no Secret'
+        type: string
+        required: true
+      confirmacao:
+        description: 'NENHUMA ou EMITIR-<12 SHA> / CANCELAR-<12 SHA>'
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: nfse-nacional-operacao-global
+  cancel-in-progress: false
+jobs:
+  nfse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.ambiente }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, gd, libxml, mbstring, openssl, simplexml, xml, zip
+          tools: composer:v2
+      - name: Recuperar dados privados de Secrets (sem log)
+        shell: bash
+        env:
+          CONFIG_JSON: ${{ secrets.NFSE_PROVIDER_JSON }}
+          REQUEST_JSON: ${{ secrets.NFSE_REQUEST_JSON }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$CONFIG_JSON" && test -n "$REQUEST_JSON" || { echo 'Configure NFSE_PROVIDER_JSON e NFSE_REQUEST_JSON.' >&2; exit 1; }
+          printf '%s' "$CONFIG_JSON" > config/modelo-fiscal.json
+          printf '%s' "$REQUEST_JSON" > request.json
+          chmod 600 config/modelo-fiscal.json request.json
+      - name: Conferir SHA, ambiente, operação e autorização
+        shell: bash
+        env:
+          REQ_SHA: ${{ inputs.request_sha256 }}
+          OP: ${{ inputs.operacao }}
+          ENVIRONMENT: ${{ inputs.ambiente }}
+          CONFIRMATION: ${{ inputs.confirmacao }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REQ_SHA" | grep -Eq '^[a-f0-9]{64}$' || { echo 'SHA256 inválido.' >&2; exit 1; }
+          ACTUAL=$(sha256sum request.json | cut -d' ' -f1)
+          test "$ACTUAL" = "$REQ_SHA" || { echo 'Secret da solicitação não coincide com SHA informado.' >&2; exit 1; }
+          JSON_OP=$(jq -r '.operacao // empty' request.json)
+          JSON_ENV=$(jq -r '.ambiente // empty' request.json)
+          test "$ENVIRONMENT" = "$JSON_ENV" || { echo 'Ambiente diverge do JSON.' >&2; exit 1; }
+          case "$JSON_OP" in emitir|cancelar) ;; *) echo 'Operação JSON inválida.' >&2; exit 1;; esac
+          if [ "$OP" != 'validar' ]; then test "$OP" = "$JSON_OP" || { echo 'Operação diverge do JSON.' >&2; exit 1; }; fi
+          if [ "$ENVIRONMENT" = 'production' ] && [ "$OP" != 'validar' ]; then
+            test "$(jq -r '.confirmarProducao // false' request.json)" = 'true' || { echo 'Produção não confirmada no JSON.' >&2; exit 1; }
+            SHA12=$(printf '%s' "$REQ_SHA" | cut -c1-12)
+            PREFIX=$(printf '%s' "$OP" | tr '[:lower:]' '[:upper:]')
+            REQUIRED="$PREFIX-$SHA12"
+            test "$CONFIRMATION" = "$REQUIRED" || { echo 'Autorização específica inválida.' >&2; exit 1; }
+          fi
+          echo 'Hash, operação e autorização conferidos sem imprimir payload fiscal.'
+      - name: Preflight fiscal local (não transmite)
+        run: php scripts/preflight.php request.json
+      - name: Instalar dependências
+        if: inputs.operacao != 'validar'
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress
+      - name: Checar presença do certificado
+        if: inputs.operacao != 'validar'
+        env:
+          CERT_B64: ${{ secrets.NFSE_CERT_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.NFSE_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$CERT_B64" && test -n "$CERT_PASSWORD" || { echo 'Secrets do certificado ausentes.' >&2; exit 1; }
+          umask 077
+          TMPDIR_CERT=$(mktemp -d)
+          trap 'rm -rf "$TMPDIR_CERT"' EXIT
+          printf '%s' "$CERT_B64" | base64 --decode > "$TMPDIR_CERT/cert.p12"
+          NFSE_CERT_PASSWORD="$CERT_PASSWORD" openssl pkcs12 -in "$TMPDIR_CERT/cert.p12" -passin env:NFSE_CERT_PASSWORD -info -noout >/dev/null 2>&1 || { echo 'PFX/senha não funcionou em OpenSSL 3.' >&2; exit 1; }
+          echo 'Certificado abriu; conteúdo não foi exibido.'
+      - name: Bloquear replay por artefato durável
+        if: inputs.operacao != 'validar'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OP: ${{ inputs.operacao }}
+          REQ_SHA: ${{ inputs.request_sha256 }}
+        run: |
+          set -euo pipefail
+          GUARD_NAME="nfse-guard-$OP-$REQ_SHA"
+          COUNT=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$GUARD_NAME" --jq '.total_count')
+          test "$COUNT" = '0' || { echo 'Tentativa anterior detectada. Concilie no portal antes de repetir.' >&2; exit 1; }
+          umask 077
+          mkdir -p guard
+          printf '%s\n' "Tentativa $OP para SHA $REQ_SHA, criada antes da transmissão." > guard/attempt.txt
+      - name: Salvar marcador ANTES da transmissão
+        if: inputs.operacao != 'validar'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfse-guard-${{ inputs.operacao }}-${{ inputs.request_sha256 }}
+          path: guard/attempt.txt
+          retention-days: 90
+          if-no-files-found: error
+      - name: Executar operação fiscal sem imprimir resposta
+        if: inputs.operacao != 'validar'
+        shell: bash
+        env:
+          NFSE_CERT_PFX_BASE64: ${{ secrets.NFSE_CERT_PFX_BASE64 }}
+          NFSE_CERT_PASSWORD: ${{ secrets.NFSE_CERT_PASSWORD }}
+          NFSE_APPROVAL: ${{ inputs.confirmacao }}
+          OP: ${{ inputs.operacao }}
+        run: |
+          set -euo pipefail
+          umask 077
+          php "src/$OP.php" request.json > result.json
+          jq -e '.ok == true' result.json >/dev/null
+          if [ "$OP" = emitir ]; then
+            test -n "$(find output -maxdepth 1 -name '*.xml' -size +0c -print -quit)"
+            test -n "$(find output -maxdepth 1 -name '*.pdf' -size +0c -print -quit)"
+          fi
+          echo 'Operação retornou sucesso; documentos permanecem em artefato privado.'
+      - name: Salvar resultado privado (mesmo em falha parcial)
+        if: always() && inputs.operacao != 'validar'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfse-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            result.json
+            output/*.xml
+            output/*.pdf
+            output/*.receipt.json
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Resumo seguro
+        if: success()
+        run: |
+          echo '### NFS-e Nacional' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Operação concluída sem exibir dados fiscais. Consulte o artefato privado e confirme no portal.' >> "$GITHUB_STEP_SUMMARY"

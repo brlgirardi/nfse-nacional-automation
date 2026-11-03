@@ -1,0 +1,17 @@
+{
+  "operacao": "emitir",
+  "ambiente": "homologation",
+  "confirmarProducao": false,
+  "identificador": "EXEMPLO",
+  "tomadorDocumento": "00000000000000",
+  "tomadorNome": "EMPRESA FICTICIA (NAO USAR PRODUCAO)",
+  "tomadorMunicipioIbge": "0000000",
+  "tomadorCep": "00000000",
+  "tomadorLogradouro": "RUA EXEMPLO",
+  "tomadorNumero": "100",
+  "tomadorBairro": "CENTRO",
+  "valor": 1,
+  "competencia": "2026-01-01",
+  "descricaoServico": "Exemplo ficticio; substitua antes de transmitir.",
+  "numeroDps": "123456789012345"
+}

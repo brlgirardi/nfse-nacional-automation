@@ -1,0 +1,34 @@
+{
+  "source": "configurado_individualmente_pelo_usuario",
+  "prestador": {
+    "cnpj": "",
+    "inscricaoMunicipal": "",
+    "nome": "",
+    "municipioEmissaoIbge": "",
+    "municipioPrestacaoIbge": "",
+    "telefone": "",
+    "email": "",
+    "regimeTributario": {
+      "opSimpNac": null,
+      "regApTribSN": null,
+      "regEspTrib": null
+    }
+  },
+  "servico": {
+    "codigoTributacaoNacional": "",
+    "descricaoTributacaoNacional": "",
+    "codigoNbs": "",
+    "descricaoNbs": "",
+    "tribISSQN": null,
+    "issRetido": null,
+    "percentualTotalTributosSN": null
+  },
+  "dps": {
+    "serieAutomacao": "10001",
+    "ambientePadrao": "homologation"
+  },
+  "defaults": {
+    "serviceDescription": "",
+    "confirmEachInvoice": true
+  }
+}

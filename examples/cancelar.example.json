@@ -1,0 +1,8 @@
+{
+  "operacao": "cancelar",
+  "ambiente": "homologation",
+  "confirmarProducao": false,
+  "chaveAcesso": "00000000000000000000000000000000000000000000000000",
+  "codigoMotivo": "2",
+  "motivo": "Motivo real e documentado."
+}

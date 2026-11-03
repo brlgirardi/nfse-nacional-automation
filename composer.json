@@ -1,0 +1,13 @@
+{
+  "name": "brlgirardi/nfse-nacional-automation",
+  "description": "Emissor NFS-e Nacional com instalador guiado e GitHub Actions",
+  "type": "project",
+  "require": {
+    "php": "^8.4",
+    "nfse-nacional/nfse-php": "1.23.0-beta",
+    "nfse-nacional/danfse-php": "dev-main"
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "license": "proprietary"
+}

@@ -1,0 +1,22 @@
+# PII, credenciais e documentos fiscais nunca entram no Git
+/config/modelo-fiscal.json
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+/vendor/
+/output/
+/tmp/
+/request.json
+/result.json
+/requests/
+.DS_Store
+
+__pycache__/
+*.pyc
+.pytest_cache/
