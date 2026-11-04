@@ -44,7 +44,7 @@ def main() -> None:
         return
     data = json.loads(SAMPLE.read_text(encoding="utf-8"))
     p,s,d=data["prestador"],data["servico"],data["dps"]
-    print("NFS-e Nacional Automation — Bruno Liberato Girardi")
+    print("\\n" + "=" * 60)\n    print("  BEM-VINDO AO NFS-e NACIONAL AUTOMATION")\n    print("  Configuração individual e segura do seu emissor")\n    print("=" * 60)\n    print("Este assistente adapta o cadastro fiscal e a rotina ao prestador.")\n    print("Dados reais serão salvos apenas em config/modelo-fiscal.json (ignorado pelo Git).")\n    print("Nunca informe senhas ou certificados neste formulário.\\n")
     print("Responda somente com dados confirmados. NUNCA cole senha/certificado aqui.")
     p["cnpj"]=ask("CNPJ do prestador (14 dígitos)")
     p["nome"]=ask("Razão social")
@@ -65,7 +65,7 @@ def main() -> None:
     s["tribISSQN"]=num("Código tribISSQN conforme classificação")
     s["issRetido"]=yesno("ISS retido pelo tomador?")
     s["percentualTotalTributosSN"]=percent("Percentual total tributos Simples (0 se orientado)") if r["opSimpNac"]==3 else None
-    d["serieAutomacao"]=ask("Série própria da DPS (sem conflito com emissor web)","10001")
+    d["serieAutomacao"]=ask("Série própria da DPS (sem conflito com emissor web)", default="10001")
     d["ambientePadrao"]="homologation"
     default_desc=ask("Descrição padrão do serviço (opcional)",False)
     confirm_each=yesno("Confirmar a descrição em CADA NFS-e?")
