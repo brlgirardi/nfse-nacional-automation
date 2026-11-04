@@ -44,7 +44,13 @@ def main() -> None:
         return
     data = json.loads(SAMPLE.read_text(encoding="utf-8"))
     p,s,d=data["prestador"],data["servico"],data["dps"]
-    print("\\n" + "=" * 60)\n    print("  BEM-VINDO AO NFS-e NACIONAL AUTOMATION")\n    print("  Configuração individual e segura do seu emissor")\n    print("=" * 60)\n    print("Este assistente adapta o cadastro fiscal e a rotina ao prestador.")\n    print("Dados reais serão salvos apenas em config/modelo-fiscal.json (ignorado pelo Git).")\n    print("Nunca informe senhas ou certificados neste formulário.\\n")
+    print("\\n" + "=" * 60)
+    print("  BEM-VINDO AO NFS-e NACIONAL AUTOMATION")
+    print("  Configuração individual e segura do seu emissor")
+    print("=" * 60)
+    print("Este assistente adapta o cadastro fiscal e a rotina ao prestador.")
+    print("Dados reais serão salvos apenas em config/modelo-fiscal.json (ignorado pelo Git).")
+    print("Nunca informe senhas ou certificados neste formulário.\\n")
     print("Responda somente com dados confirmados. NUNCA cole senha/certificado aqui.")
     p["cnpj"]=ask("CNPJ do prestador (14 dígitos)")
     p["nome"]=ask("Razão social")
